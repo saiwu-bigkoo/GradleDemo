@@ -1,0 +1,126 @@
+apply plugin: 'com.android.application'
+
+//定义打包时间函数
+def packageTime() {
+    return new Date().format("yyyy-MM-dd-HH-mm", TimeZone.getTimeZone("UTC"))
+}
+//获取local.properties的内容
+Properties properties = new Properties()
+properties.load(project.rootProject.file('local.properties').newDataInputStream())
+
+android {
+    compileSdkVersion 21
+    buildToolsVersion "20.0.0"
+
+    defaultConfig {
+        applicationId "com.bigkoo.gradledemo"
+        minSdkVersion 9
+        targetSdkVersion 21
+        versionCode 1
+        versionName "1.0"
+        // AndroidManifest.xml文件中UMENG_CHANNEL的value为${UMENG_CHANNEL_VALUE}
+        manifestPlaceholders = [UMENG_CHANNEL_VALUE: "main"]
+    }
+
+    // 签名文件
+    signingConfigs {
+
+        release {
+            // relase签名
+            //在local.properties 文件里面配置
+            storeFile file(properties.getProperty("keystroe_storeFile"))
+            storePassword properties.getProperty("keystroe_storePassword")
+            keyAlias properties.getProperty("keystroe_keyAlias")
+            keyPassword properties.getProperty("keystroe_keyPassword")
+        }
+    }
+
+    // 构建类型
+    buildTypes {
+        debug {
+            // debug模式下，显示log
+            buildConfigField("boolean", "LOG_DEBUG", "true")
+            buildConfigField ("String", "API_HOST", "\"http://api.test.com\"")//API Host
+            applicationIdSuffix ".debug"
+            // 版本名前缀
+            versionNameSuffix "-debug"
+            // 不开启混淆
+            minifyEnabled false
+            // 不开启ZipAlign优化
+            zipAlignEnabled false
+            // 不移除无用的resource文件
+            shrinkResources false
+            // 使用debug签名
+            signingConfig signingConfigs.debug
+
+        }
+        release {
+            // release模式下，不显示log
+            buildConfigField("boolean", "LOG_DEBUG", "false")
+            buildConfigField("String", "API_HOST", "\"http://api.release.com\"")//API Host
+            // 版本名前缀
+            versionNameSuffix "-relase"
+            // 开启混淆
+            minifyEnabled true
+            // 开启ZipAlign优化
+            zipAlignEnabled true
+            // 移除无用的resource文件
+            shrinkResources true
+            // 使用release签名
+            signingConfig signingConfigs.release
+            // 混淆文件位置
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    // 渠道Flavors，配置不同的渠道
+    productFlavors {
+        GooglePaly {
+            //指定这个渠道的版本号
+            versionCode 2
+            versionName "2.0"
+            //指定区别于其他渠道的 applicationId
+            applicationId "com.bigkoo.gradledemo.hd"
+        }
+        xiaomi {}
+        umeng {}
+        qihu360 {}
+        wandoujia {}
+        yingyongbao {}
+        //其他...
+    }
+
+    // 批量配置渠道
+    productFlavors.all {
+        flavor -> flavor.manifestPlaceholders = [UMENG_CHANNEL_VALUE: name]
+    }
+
+    android{
+
+        applicationVariants.all { variant ->
+            variant.outputs.each { output ->
+                def outputFile = output.outputFile
+                if (outputFile != null && outputFile.name.endsWith('.apk')) {
+                    File outputDirectory = new File(outputFile.parent);
+                    def fileName
+                    if (variant.buildType.name == "release") {
+                        fileName = "app_v${defaultConfig.versionName}_${packageTime()}_${variant.productFlavors[0].name}.apk"
+                    } else {
+                        fileName = "app_v${defaultConfig.versionName}_${packageTime()}_debug.apk"
+                    }
+                    output.outputFile = new File(outputDirectory, fileName)
+                }
+            }
+        }
+
+    }
+}
+
+dependencies {
+    compile fileTree(dir: 'libs', include: ['*.jar'])
+    compile 'com.android.support:appcompat-v7:21.0.3'
+    //参与编译but不参与打包
+    provided 'com.bigkoo:alertview:1.0.1'
+    //指定qihu360这个渠道可以打包这个库
+    qihu360Compile 'com.bigkoo:alertview:1.0.1'
+}
